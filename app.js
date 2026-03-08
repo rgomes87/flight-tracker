@@ -9,7 +9,7 @@
 const API_BASE = 'http://api.aviationstack.com/v1/flights';
 const WATCHLIST_KEY = 'flightwatch_watchlist';   // localStorage key
 const PREV_STATUS_KEY = 'flightwatch_prev_status'; // localStorage key for status tracking
-const REFRESH_INTERVAL = 30 * 60 * 1000;            // 30 minutes
+const REFRESH_INTERVAL = 5 * 60 * 1000;            // 30 minutes
 
 // ── DOM refs ─────────────────────────────────────────────────
 const flightInput = document.getElementById('flight-input');
