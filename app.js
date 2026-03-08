@@ -9,6 +9,7 @@
 const API_BASE = 'http://api.aviationstack.com/v1/flights';
 const WATCHLIST_KEY = 'flightwatch_watchlist';   // localStorage key
 const PREV_STATUS_KEY = 'flightwatch_prev_status'; // localStorage key for status tracking
+const ALERTS_ENABLED_KEY = 'flightwatch_alerts_on';   // app-level alert toggle
 const REFRESH_INTERVAL = 15 * 60 * 1000;            // 15 minutes
 
 // ── DOM refs ─────────────────────────────────────────────────
@@ -29,6 +30,9 @@ const toastContainer = document.getElementById('toast-container');
 // ── State ────────────────────────────────────────────────────
 let currentResult = null;
 let autoRefreshTimer = null;
+// App-level alert preference (separate from browser permission)
+// Defaults to true so alerts are on immediately after browser permission is granted
+let alertsEnabled = localStorage.getItem(ALERTS_ENABLED_KEY) !== 'false';
 
 // ── Init ─────────────────────────────────────────────────────
 (function init() {
@@ -497,34 +501,54 @@ function updateNotifButton() {
         return;
     }
 
-    // Clean up all state classes first
-    notifBtn.classList.remove('active', 'denied');
+    // Reset all state classes and injected elements
+    notifBtn.classList.remove('active', 'denied', 'paused');
     const existingDot = notifBtn.querySelector('.active-dot');
     if (existingDot) existingDot.remove();
 
-    if (Notification.permission === 'granted') {
+    const perm = Notification.permission;
+
+    if (perm === 'granted' && alertsEnabled) {
+        // Alerts are ON — show green active state
         notifBtn.classList.add('active');
-        notifLabel.textContent = 'Alerts On';
-        // Inject pulsing dot before the label
+        notifLabel.textContent = 'Disable Alerts';
         const dot = document.createElement('span');
         dot.className = 'active-dot';
         notifBtn.insertBefore(dot, notifLabel);
-    } else if (Notification.permission === 'denied') {
+    } else if (perm === 'granted' && !alertsEnabled) {
+        // Permission granted but user turned alerts off
+        notifBtn.classList.add('paused');
+        notifLabel.textContent = 'Enable Alerts';
+    } else if (perm === 'denied') {
         notifBtn.classList.add('denied');
         notifLabel.textContent = 'Alerts Blocked';
     } else {
+        // 'default' — not yet asked
         notifLabel.textContent = 'Enable Alerts';
     }
 }
 
 notifBtn.addEventListener('click', () => {
     if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted') return; // already on, nothing to do
-    Notification.requestPermission().then(updateNotifButton);
+
+    if (Notification.permission === 'granted') {
+        // Toggle the app-level preference
+        alertsEnabled = !alertsEnabled;
+        localStorage.setItem(ALERTS_ENABLED_KEY, alertsEnabled);
+        updateNotifButton();
+        return;
+    }
+
+    // Permission not yet granted — ask the browser
+    Notification.requestPermission().then(() => {
+        alertsEnabled = true;
+        localStorage.setItem(ALERTS_ENABLED_KEY, 'true');
+        updateNotifButton();
+    });
 });
 
 function fireArrivalNotification(iata, f) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!('Notification' in window) || Notification.permission !== 'granted' || !alertsEnabled) return;
 
     const arrival = f.arrival?.airport || 'destination';
     const time = formatTime(f.arrival?.actual || f.arrival?.estimated || f.arrival?.scheduled);

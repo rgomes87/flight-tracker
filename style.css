@@ -205,6 +205,17 @@ body {
   cursor: not-allowed;
 }
 
+.notif-btn.paused {
+  background: var(--surface);
+  border-color: var(--border-hi);
+  color: var(--text-secondary);
+}
+
+.notif-btn.paused:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Pulsing dot shown inside button when active */
 .notif-btn .active-dot {
   width: 6px;
