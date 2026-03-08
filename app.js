@@ -528,23 +528,55 @@ function updateNotifButton() {
     }
 }
 
-notifBtn.addEventListener('click', () => {
-    if (!('Notification' in window)) return;
-
-    if (Notification.permission === 'granted') {
-        // Toggle the app-level preference
-        alertsEnabled = !alertsEnabled;
-        localStorage.setItem(ALERTS_ENABLED_KEY, alertsEnabled);
-        updateNotifButton();
+notifBtn.addEventListener('click', async () => {
+    if (!('Notification' in window)) {
+        showToast('Your browser does not support notifications.', 'error');
         return;
     }
 
-    // Permission not yet granted — ask the browser
-    Notification.requestPermission().then(() => {
-        alertsEnabled = true;
-        localStorage.setItem(ALERTS_ENABLED_KEY, 'true');
+    if (Notification.permission === 'granted') {
+        // Toggle app-level preference — no browser dialog needed
+        alertsEnabled = !alertsEnabled;
+        localStorage.setItem(ALERTS_ENABLED_KEY, String(alertsEnabled));
         updateNotifButton();
-    });
+        showToast(alertsEnabled ? 'Arrival alerts enabled.' : 'Arrival alerts paused.', alertsEnabled ? 'success' : 'info');
+        return;
+    }
+
+    if (Notification.permission === 'denied') {
+        showToast('Notifications are blocked. Enable them in your browser settings, then reload.', 'error');
+        return;
+    }
+
+    // Permission is 'default' — ask the browser
+    // Disable button while waiting for dialog
+    notifBtn.disabled = true;
+    notifLabel.textContent = 'Waiting…';
+
+    try {
+        // Works in Chrome (returns Promise) and Safari 15+ (returns Promise)
+        // For older Safari, requestPermission() is callback-only — wrap in a safe Promise
+        const result = await new Promise((resolve) => {
+            const p = Notification.requestPermission((r) => resolve(r));
+            if (p && typeof p.then === 'function') p.then(resolve);
+        });
+
+        alertsEnabled = (result === 'granted');
+        localStorage.setItem(ALERTS_ENABLED_KEY, String(alertsEnabled));
+
+        if (result === 'granted') {
+            showToast('Arrival alerts enabled. You will be notified when tracked flights land.', 'success');
+        } else {
+            showToast('Notification permission was not granted. You can enable it in browser settings.', 'error');
+        }
+    } catch (err) {
+        // Fallback — check current state
+        alertsEnabled = (Notification.permission === 'granted');
+        localStorage.setItem(ALERTS_ENABLED_KEY, String(alertsEnabled));
+    } finally {
+        notifBtn.disabled = false;
+        updateNotifButton();
+    }
 });
 
 function fireArrivalNotification(iata, f) {
