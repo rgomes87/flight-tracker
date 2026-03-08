@@ -10,6 +10,7 @@ const API_BASE = 'http://api.aviationstack.com/v1/flights';
 const WATCHLIST_KEY = 'flightwatch_watchlist';   // localStorage key
 const PREV_STATUS_KEY = 'flightwatch_prev_status'; // localStorage key for status tracking
 const ALERTS_ENABLED_KEY = 'flightwatch_alerts_on';   // app-level alert toggle
+const SETTINGS_KEY = 'flightwatch_settings';    // user settings (api key, whatsapp)
 const REFRESH_INTERVAL = 15 * 60 * 1000;            // 15 minutes
 
 // ── DOM refs ─────────────────────────────────────────────────
@@ -39,6 +40,15 @@ let alertsEnabled = localStorage.getItem(ALERTS_ENABLED_KEY) !== 'false';
     renderWatchlist();
     updateNotifButton();   // reflect existing permission state — never prompts automatically
     startAutoRefresh();
+    checkFirstRun();        // show settings if no API key found
+
+    // Settings panel
+    document.getElementById('settings-btn').addEventListener('click', openSettings);
+    document.getElementById('settings-close').addEventListener('click', closeSettings);
+    document.getElementById('settings-save-btn').addEventListener('click', saveSettings);
+    document.getElementById('settings-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'settings-overlay') closeSettings();
+    });
 
     // Search on button click
     searchBtn.addEventListener('click', handleSearch);
@@ -115,7 +125,16 @@ function hideResult() {
 
 // ── API ──────────────────────────────────────────────────────
 async function fetchFlight(flightIata) {
-    const url = `${API_BASE}?access_key=${CONFIG.AVIATION_STACK_KEY}&flight_iata=${encodeURIComponent(flightIata)}`;
+    const key = getSettings().aviationKey;
+    if (!key) {
+        openSettings();
+        throw new Error('No API key set. Please enter your AviationStack key in Settings.');
+    }
+    // On HTTPS (GitHub Pages), route via CORS proxy — AviationStack free plan is HTTP-only
+    const target = `${API_BASE}?access_key=${key}&flight_iata=${encodeURIComponent(flightIata)}`;
+    const url = location.protocol === 'https:'
+        ? `https://corsproxy.io/?${encodeURIComponent(target)}`
+        : target;
 
     let res;
     try {
@@ -378,10 +397,15 @@ async function refreshWatchlist() {
             const data = await fetchFlight(iata);
             results.push({ iata, data });
 
-            // Check for arrival
+            // Check for departure (scheduled → active) and arrival (any → landed)
             if (data) {
                 const prev = statuses[iata];
                 const curr = data.flight_status;
+                if (prev && prev !== 'active' && curr === 'active') {
+                    fireDepartureNotification(iata, data);
+                    sendDepartureWhatsAppAlert(iata, data);
+                    showToast(`${iata} has taken off from ${data.departure?.airport || 'origin'}.`, 'info');
+                }
                 if (prev !== 'landed' && curr === 'landed') {
                     fireArrivalNotification(iata, data);
                     sendWhatsAppAlert(iata, data);
@@ -606,19 +630,84 @@ function showToast(message, type = 'info') {
     toastContainer.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
-// ── WhatsApp alert via CallMeBot ───────────────────────────────────
-// To activate: fill in CONFIG.WHATSAPP in config.js and set enabled: true
+// ── WhatsApp alert via CallMeBot ─────────────────────────────────────
 function sendWhatsAppAlert(iata, f) {
-    const wa = CONFIG.WHATSAPP;
-    if (!wa || !wa.enabled || !wa.phone || !wa.apiKey) return;
-
+    const wa = getSettings().whatsapp;
+    if (!wa.enabled || !wa.phone || !wa.apiKey) return;
     const airport = f.arrival?.airport || 'destination';
     const time = formatTime(f.arrival?.actual || f.arrival?.estimated || f.arrival?.scheduled);
-    const text = encodeURIComponent(
-        `✈️ FlightWatch: ${iata} has LANDED at ${airport}${time !== '—' ? ' at ' + time : ''}.`
-    );
-
-    // Use Image() trick to fire a GET request without CORS issues from file://
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${wa.phone}&text=${text}&apikey=${wa.apiKey}`;
-    new Image().src = url;
+    const text = encodeURIComponent(`✈️ FlightWatch: ${iata} has LANDED at ${airport}${time !== '—' ? ' at ' + time : ''}.`);
+    new Image().src = `https://api.callmebot.com/whatsapp.php?phone=${wa.phone}&text=${text}&apikey=${wa.apiKey}`;
 }
+
+function sendDepartureWhatsAppAlert(iata, f) {
+    const wa = getSettings().whatsapp;
+    if (!wa.enabled || !wa.phone || !wa.apiKey) return;
+    const airport = f.departure?.airport || 'origin';
+    const text = encodeURIComponent(`✈️ FlightWatch: ${iata} has TAKEN OFF from ${airport}.`);
+    new Image().src = `https://api.callmebot.com/whatsapp.php?phone=${wa.phone}&text=${text}&apikey=${wa.apiKey}`;
+}
+
+// ── Settings ─────────────────────────────────────────────────────────
+function getSettings() {
+    // Merges localStorage (deployed) with config.js (local dev); localStorage wins
+    const stored = (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (_) { return {}; } })();
+    const cfg = (typeof CONFIG !== 'undefined') ? CONFIG : {};
+    return {
+        aviationKey: stored.aviationKey || cfg.AVIATION_STACK_KEY || '',
+        whatsapp: {
+            enabled: stored.whatsappEnabled !== undefined ? stored.whatsappEnabled : (cfg.WHATSAPP?.enabled || false),
+            phone: stored.whatsappPhone || cfg.WHATSAPP?.phone || '',
+            apiKey: stored.whatsappApiKey || cfg.WHATSAPP?.apiKey || '',
+        }
+    };
+}
+
+function openSettings() {
+    const s = getSettings();
+    document.getElementById('settings-aviation-key').value = s.aviationKey;
+    document.getElementById('settings-wa-phone').value = s.whatsapp.phone;
+    document.getElementById('settings-wa-apikey').value = s.whatsapp.apiKey;
+    document.getElementById('settings-overlay').classList.remove('hidden');
+}
+
+function closeSettings() {
+    document.getElementById('settings-overlay').classList.add('hidden');
+}
+
+function saveSettings() {
+    const key = document.getElementById('settings-aviation-key').value.trim();
+    const waPhone = document.getElementById('settings-wa-phone').value.trim();
+    const waKey = document.getElementById('settings-wa-apikey').value.trim();
+
+    if (!key) {
+        document.getElementById('settings-aviation-key').focus();
+        return;
+    }
+
+    const settings = {
+        aviationKey: key,
+        whatsappEnabled: !!(waPhone && waKey),
+        whatsappPhone: waPhone,
+        whatsappApiKey: waKey,
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    closeSettings();
+    showToast('Settings saved.', 'success');
+}
+
+function checkFirstRun() {
+    if (!getSettings().aviationKey) openSettings();
+}
+
+// ── Departure browser notification ───────────────────────────────────
+function fireDepartureNotification(iata, f) {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || !alertsEnabled) return;
+    const dep = f.departure?.airport || 'origin';
+    new Notification(`${iata} has taken off`, {
+        body: `Departed from ${dep}.`,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">✈</text></svg>',
+        tag: `flightwatch-dep-${iata}`,
+    });
+}
+
