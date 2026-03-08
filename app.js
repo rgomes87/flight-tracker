@@ -497,10 +497,21 @@ function updateNotifButton() {
         notifBtn.classList.add('hidden');
         return;
     }
+
+    // Clean up all state classes first
+    notifBtn.classList.remove('active', 'denied');
+    const existingDot = notifBtn.querySelector('.active-dot');
+    if (existingDot) existingDot.remove();
+
     if (Notification.permission === 'granted') {
         notifBtn.classList.add('active');
         notifLabel.textContent = 'Alerts On';
+        // Inject pulsing dot before the label
+        const dot = document.createElement('span');
+        dot.className = 'active-dot';
+        notifBtn.insertBefore(dot, notifLabel);
     } else if (Notification.permission === 'denied') {
+        notifBtn.classList.add('denied');
         notifLabel.textContent = 'Alerts Blocked';
     } else {
         notifLabel.textContent = 'Enable Alerts';
@@ -509,9 +520,8 @@ function updateNotifButton() {
 
 notifBtn.addEventListener('click', () => {
     if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') {
-        Notification.requestPermission().then(updateNotifButton);
-    }
+    if (Notification.permission === 'granted') return; // already on, nothing to do
+    Notification.requestPermission().then(updateNotifButton);
 });
 
 function fireArrivalNotification(iata, f) {
