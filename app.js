@@ -501,29 +501,34 @@ function updateNotifButton() {
         return;
     }
 
-    // Reset all state classes and injected elements
+    // Reset classes, inline styles, and injected elements
     notifBtn.classList.remove('active', 'denied', 'paused');
+    notifBtn.removeAttribute('style');
     const existingDot = notifBtn.querySelector('.active-dot');
     if (existingDot) existingDot.remove();
 
     const perm = Notification.permission;
 
     if (perm === 'granted' && alertsEnabled) {
-        // Alerts are ON — show green active state
+        // Alerts ON — solid green
         notifBtn.classList.add('active');
+        notifBtn.style.cssText = 'background:#30d158;border-color:#30d158;color:#000;box-shadow:0 0 16px rgba(48,209,88,0.4);';
         notifLabel.textContent = 'Disable Alerts';
         const dot = document.createElement('span');
         dot.className = 'active-dot';
+        dot.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;background:#000;flex-shrink:0;';
         notifBtn.insertBefore(dot, notifLabel);
     } else if (perm === 'granted' && !alertsEnabled) {
-        // Permission granted but user turned alerts off
+        // Alerts OFF (but permitted)
         notifBtn.classList.add('paused');
         notifLabel.textContent = 'Enable Alerts';
     } else if (perm === 'denied') {
+        // Browser blocked
         notifBtn.classList.add('denied');
+        notifBtn.style.cssText = 'background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.35);color:#ff453a;';
         notifLabel.textContent = 'Alerts Blocked';
     } else {
-        // 'default' — not yet asked
+        // Not yet asked
         notifLabel.textContent = 'Enable Alerts';
     }
 }
