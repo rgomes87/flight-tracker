@@ -384,6 +384,7 @@ async function refreshWatchlist() {
                 const curr = data.flight_status;
                 if (prev !== 'landed' && curr === 'landed') {
                     fireArrivalNotification(iata, data);
+                    sendWhatsAppAlert(iata, data);
                     showToast(`${iata} has landed at ${data.arrival?.airport || 'destination'}.`, 'success');
                 }
                 statuses[iata] = curr;
@@ -604,4 +605,20 @@ function showToast(message, type = 'info') {
     toast.textContent = message;
     toastContainer.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
+}
+// ── WhatsApp alert via CallMeBot ───────────────────────────────────
+// To activate: fill in CONFIG.WHATSAPP in config.js and set enabled: true
+function sendWhatsAppAlert(iata, f) {
+    const wa = CONFIG.WHATSAPP;
+    if (!wa || !wa.enabled || !wa.phone || !wa.apiKey) return;
+
+    const airport = f.arrival?.airport || 'destination';
+    const time = formatTime(f.arrival?.actual || f.arrival?.estimated || f.arrival?.scheduled);
+    const text = encodeURIComponent(
+        `✈️ FlightWatch: ${iata} has LANDED at ${airport}${time !== '—' ? ' at ' + time : ''}.`
+    );
+
+    // Use Image() trick to fire a GET request without CORS issues from file://
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${wa.phone}&text=${text}&apikey=${wa.apiKey}`;
+    new Image().src = url;
 }
