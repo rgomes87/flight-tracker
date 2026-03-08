@@ -11,7 +11,7 @@ const WATCHLIST_KEY = 'flightwatch_watchlist';   // localStorage key
 const PREV_STATUS_KEY = 'flightwatch_prev_status'; // localStorage key for status tracking
 const ALERTS_ENABLED_KEY = 'flightwatch_alerts_on';   // app-level alert toggle
 const SETTINGS_KEY = 'flightwatch_settings';    // user settings (api key, whatsapp)
-const REFRESH_INTERVAL = 15 * 60 * 1000;            // 15 minutes
+const REFRESH_INTERVAL = 60 * 60 * 1000;            // 60 minutes
 
 // ── DOM refs ─────────────────────────────────────────────────
 const flightInput = document.getElementById('flight-input');
