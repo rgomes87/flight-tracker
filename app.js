@@ -620,6 +620,7 @@ function fireArrivalNotification(iata, f) {
         icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">✈</text></svg>',
         tag: `flightwatch-${iata}`, // prevents duplicate notifications for same flight
     });
+    playNotificationSound(true);
 }
 
 // ── Toast ────────────────────────────────────────────────────
@@ -709,5 +710,60 @@ function fireDepartureNotification(iata, f) {
         icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">✈</text></svg>',
         tag: `flightwatch-dep-${iata}`,
     });
+    playNotificationSound(false);
+}
+
+// ── Notification sound (Web Audio API — no file needed) ──────────────
+function playNotificationSound(isArrival = true) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        if (isArrival) {
+            // Ascending chime that builds over ~5 seconds
+            const notes = [
+                [523.25, 0.0, 0.6],   // C5
+                [659.25, 0.5, 0.6],   // E5
+                [783.99, 1.0, 0.6],   // G5
+                [1046.5, 1.5, 1.0],   // C6 (held)
+                [783.99, 2.6, 0.4],   // G5
+                [1046.5, 3.0, 0.4],   // C6
+                [1318.5, 3.4, 1.8],   // E6 (final, long fade)
+            ];
+            notes.forEach(([freq, delay, dur]) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                const t = ctx.currentTime + delay;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.15, t + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                osc.start(t);
+                osc.stop(t + dur + 0.1);
+            });
+        } else {
+            // Two quick ascending beeps for departure
+            [[587.33, 0.0], [739.99, 0.35]].forEach(([freq, delay]) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                const t = ctx.currentTime + delay;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                osc.start(t);
+                osc.stop(t + 0.45);
+            });
+        }
+
+        setTimeout(() => ctx.close().catch(() => { }), 6000);
+    } catch (_) {
+        // Web Audio not available — silent fallback
+    }
 }
 
