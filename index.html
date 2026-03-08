@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlightWatch — Real-Time Flight Tracker</title>
+  <meta name="description" content="Track your friends' flights in real time. Search by flight number and get arrival alerts." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- Ambient background orbs -->
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header__inner">
+        <div class="logo">
+          <svg class="logo__icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
+          </svg>
+          <span class="logo__text">FlightWatch</span>
+        </div>
+        <button class="notif-btn" id="notif-btn" title="Enable arrival alerts">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="notif-label">Enable Alerts</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- Hero + Search -->
+      <section class="hero">
+        <div class="hero__content">
+          <p class="hero__eyebrow">Real-Time Tracking</p>
+          <h1 class="hero__title">Track Any Flight,<br>Anywhere.</h1>
+          <p class="hero__subtitle">Follow friends flying with BA, TAP, or any airline worldwide. Get notified the moment they land.</p>
+        </div>
+
+        <div class="search-wrap">
+          <div class="search-bar" id="search-bar">
+            <svg class="search-bar__icon" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input
+              type="text"
+              id="flight-input"
+              class="search-bar__input"
+              placeholder="Enter flight number — e.g. BA123 or TP451"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="8"
+            />
+            <button class="search-bar__btn" id="search-btn">
+              <span class="btn-label">Search</span>
+              <span class="btn-spinner hidden" id="search-spinner"></span>
+            </button>
+          </div>
+          <p class="search-error hidden" id="search-error"></p>
+        </div>
+      </section>
+
+      <!-- Search Result -->
+      <section class="result-section hidden" id="result-section">
+        <div class="card flight-card" id="result-card">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- Watchlist -->
+      <section class="watchlist-section">
+        <div class="watchlist-header">
+          <h2 class="section-title">Watchlist</h2>
+          <div class="watchlist-actions">
+            <span class="last-updated" id="last-updated"></span>
+            <button class="btn-ghost" id="refresh-all-btn">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Refresh All
+            </button>
+          </div>
+        </div>
+
+        <div id="watchlist-container">
+          <div class="watchlist-empty" id="watchlist-empty">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            <p>No flights on your watchlist yet.</p>
+            <p class="muted">Search for a flight and add it to start tracking.</p>
+          </div>
+          <div class="watchlist-grid" id="watchlist-grid">
+            <!-- Watchlist cards populated by JS -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <p>Data provided by <a href="https://aviationstack.com" target="_blank" rel="noopener">AviationStack</a> &middot; Auto-refreshes every 30 min &middot; <span id="api-calls-remaining"></span></p>
+    </footer>
+
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
