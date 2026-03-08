@@ -33,8 +33,7 @@ let autoRefreshTimer = null;
 // ── Init ─────────────────────────────────────────────────────
 (function init() {
     renderWatchlist();
-    requestNotificationPermission();
-    updateNotifButton();
+    updateNotifButton();   // reflect existing permission state — never prompts automatically
     startAutoRefresh();
 
     // Search on button click
